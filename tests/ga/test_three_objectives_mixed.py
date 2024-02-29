@@ -9,9 +9,16 @@ model_type = "three_objective_mixed_model"
 options = {
     "name": model_type,
     "grid_points": 10,
+    "solver_name": "glpk",
+    "solver_io": None,
 }
 
-py_augmecon = PyAugmecon(three_objective_mixed_model(), options)
+solver_options = {
+    "MIPGap": None,
+    "NonConvex": None,
+}
+
+py_augmecon = PyAugmecon(three_objective_mixed_model(), options, solver_options)
 py_augmecon.solve()
 
 

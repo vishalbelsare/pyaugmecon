@@ -4,6 +4,7 @@
 
 ## An AUGMECON based multi-objective optimization solver for Pyomo
 
+[![Tests](https://github.com/wouterbles/pyaugmecon/actions/workflows/main.yml/badge.svg)](https://github.com/wouterbles/pyaugmecon/actions/workflows/main.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg)](https://github.com/wouterbles/pyaugmecon/blob/main/LICENSE)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![PyPI](https://img.shields.io/pypi/v/pyaugmecon)](https://pypi.org/project/pyaugmecon)
@@ -42,13 +43,13 @@ PyAUGMECON can be installed from [PyPI](https://pypi.org/) using `pip install py
 - [Pandas](https://pandas.pydata.org/)
 - [Cloudpickle](https://github.com/cloudpipe/cloudpickle)
 - [Pymoo](https://pymoo.org/)
-- [Gurobi](https://www.gurobi.com/) (other solvers currently not supported)
+- [Gurobi](https://www.gurobi.com/) (other sovlers supported as well)
 
 > The [Gurobi Python bindings](https://www.gurobi.com/documentation/9.1/quickstart_mac/cs_python.html) are significantly faster than using the executable. So even if you have already installed Gurobi, please still install the Python version for an optimal experience.
 
 ### Anaconda installation (advised)
 
-This installation is advised as the PyPI installation of Gurobi does not include the licensing tools. Only Gurobi and Pyomo need to be installed as other tools are by default included in Anaconda or will be automatically installed as dependencies of PyAUGMECON.
+This installation is advised as the PyPI installation of Gurobi does not include the licensing tools. Only Gurobi needs to be installed as other tools are by default included in Anaconda or will be automatically installed as dependencies of PyAUGMECON.
 
 ```bash
 # Install Anaconda from https://www.anaconda.com
@@ -69,6 +70,9 @@ For a PyPI installation, only Gurobi needs to be installed, other requirements w
 # Install Gurobi, PYAUGMECON, and dependencies
 pip install gurobipy pyaugmecon
 ```
+
+### Other solvers
+The installation instructions above describe an installation with Gurobi, since this is the solver that has been used for testing. However, other solvers should work as well. The only requirement is that the solver is supported by Pyomo. An example of the GLPK solver can be found [in the test folder](https://github.com/wouterbles/pyaugmecon/blob/main/tests/ga/test_two_objectives.py).
 
 ## Usage
 
@@ -96,25 +100,31 @@ from tests.optimization_models import three_kp_model
 
 # Multiprocessing requires this If statement (on Windows)
 if __name__ == "__main__":
-    model_type = '3kp40'
+    model_type = "3kp40"
 
     # AUGMECON related options
     opts = {
-        'name': model_type,
-        'grid_points': 540,
-        'nadir_points': [1031, 1069],
-        }
+        "name": model_type,
+        "grid_points": 540,
+        "nadir_points": [1031, 1069],
+    }
 
-    # Options passed to Gurobi
-    solver_opts = {}
-
-    A = PyAugmecon(three_kp_model(model_type), opts, solver_opts) # instantiate  PyAugmecon
-    A.solve() # solve PyAugmecon multi-objective optimization problem
-    print(A.model.payoff) # this prints the payoff table
-    print(A.unique_pareto_sols) # this prints the unique Pareto optimal solutions
+    pyaugmecon = PyAugmecon(three_kp_model(model_type), opts)  # instantiate  PyAugmecon
+    pyaugmecon.solve()  # solve PyAugmecon multi-objective optimization problem
+    sols = pyaugmecon.get_pareto_solutions()  # get all pareto solutions
+    payoff = pyaugmecon.get_payoff_table()  # get the payoff table
+    decision_vars = pyaugmecon.get_decision_variables(sols[0])  # get the decision variables
 ```
 
-### PyAugmecon object attributes
+### PyAugmecon methods
+
+| Name                     | Description                                                                                                                                             |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `get_pareto_solutions()`    | Get a list of Pareto-optimal solutions (`list[tuple]`) |
+| `get_decision_variables(pareto_solution)` | Get a dictionary of decision variables for a given Pareto-optimal solution. Where the key represents the decision variable name and the value is a pd.Series with the values. |
+| `get_payoff_table()`  | Get the payoff table from the model. |
+
+### PyAugmecon attributes
 
 After solving the model with `PyAugmecon.solve()`, the following object attributes are available:
 
@@ -134,6 +144,26 @@ After solving the model with `PyAugmecon.solve()`, the following object attribut
 | `model.e`                | Gridpoints of p-1 objective functions that are used as constraints                                                                                      |
 | `hv_indicator`           | The hypervolume indicator of the unique Pareto solutions, [see Pymoo documentation](https://pymoo.org/misc/performance_indicator.html) for more details |
 | `runtime`                | Total runtime in seconds                                                                                                                                |
+
+### PyAugmecon solutions details
+
+The solutions are stored in the `sols`, `unique_sols`, and `unique_pareto_sols` attributes. These differ in the following ways:
+
+- `sols` contains all solutions, including duplicates and non-Pareto solutions
+- `unique_sols` contains all unique solutions, including non-Pareto solutions
+- `unique_pareto_sols` contains all unique Pareto solutions
+
+The solutions are stored dictionary, where each dictionary contains the objective values (keys) and the decision variables (values). The objective values are stored as a tuple, where the first element is the objective value of the first objective function, the second element is the objective value of the second objective function, and so on. The decision variables are stored as a dictionary, where the keys are the names of the decision variables and the values are the values of the decision variables.
+
+This is an example of the `unique_pareto_sols` attribute:
+
+```python
+{
+    (3, 5): {'x': pd.Series([1, 2]), 'y': pd.Series([2, 3])},
+    (4, 4): {'x': pd.Series([3, 4]), 'y': pd.Series([1, 2])},
+    (5, 3): {'x': pd.Series([2, 4]), 'y': pd.Series([1, 3])},
+}
+```
 
 ### PyAugmecon options
 
